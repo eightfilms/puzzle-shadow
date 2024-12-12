@@ -80,9 +80,9 @@ Now that we've covered all the basics, let's try to solve the puzzle!
 
 ## Solution
 
-We have established that we can't successfully execute the program on 2 conditions, and we showed 1 of the conditions above. The other condition is if the constraints fail. Since there are two asserts in `main()`.
+We have established that we can't successfully execute the program on 2 conditions, and we showed 1 of the conditions above. The other condition is if the constraints fail. There are two assertions in our program, which means there are two constraints.
 
-In plain English, the two asserts require us to show:
+In plain English, the two assertions require us to show:
 
 1. that **Alice** is whitelisted, and
 2. that **Alice** can act as **Bob** knowing the above information.
@@ -141,7 +141,7 @@ storage = [155, 143, 27, 66, 87, 125, 33, 110, 57, 153, 93, 228, 167, 76, 120, 2
 We've solved it! Or not...?
 
 ```console
-$nargo execute --silence-warnings
+$ nargo execute --silence-warnings
 The value passed for parameter `identifier.storage` does not match the specified type:
 Type Array { length: 128, typ: Integer { sign: Unsigned, width: 8 } } is expected to have length 128 but value Vec([Field(155), Field(143), Field(27), Field(66), Field(87), Field(125), Field(33), Field(110), Field(57), Field(153), Field(93), Field(228), Field(167), Field(76), Field(120), Field(220), Field(178), Field(200), Field(187), Field(35), Field(211), Field(175), Field(104), Field(63), Field(140), Field(208), Field(36), Field(184), Field(88), Field(1), Field(203), Field(62), Field(95), Field(213), Field(231), Field(76), Field(105), Field(105), Field(96), Field(199), Field(183), Field(106), Field(26), Field(29), Field(7), Field(28), Field(234), Field(145), Field(69), Field(48), Field(9), Field(254), Field(205), Field(79), Field(21), Field(90), Field(13), Field(39), Field(172), Field(114), Field(59), Field(131), Field(15), Field(78), Field(118)]) has length 65
 ```
