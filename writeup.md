@@ -91,7 +91,7 @@ In plain English, the two assertions require us to show:
 
 The first part of the puzzle requires us to show that Alice is whitelisted:
 
-```rust
+```nr
     // the identifier hashes to a digest that is in the public whitelist
     let digest = std::hash::sha256_var(identifier.storage(), identifier.len() as u64);
     let mut present = false;
@@ -109,7 +109,7 @@ We also know from the provided `README.md` that the `identifier` is a string of 
 
 In `main.nr`, we are given Alice's public key and pepper in arrays of 32 bytes each:
 
-```rust
+```nr
 // alice_pk = [155, 143, 27, 66, 87, 125, 33, 110, 57, 153, 93, 228, 167, 76, 120, 220, 178, 200, 187, 35, 211, 175, 104, 63, 140, 208, 36, 184, 88, 1, 203, 62]
 // alice_pepper = [213, 231, 76, 105, 105, 96, 199, 183, 106, 26, 29, 7, 28, 234, 145, 69, 48, 9, 254, 205, 79, 21, 90, 13, 39, 172, 114, 59, 131, 15, 78, 118]
 ```
@@ -160,7 +160,7 @@ But you will find that the same error occurs... which is weird - isn't `len` tal
 
 To understand what's going on under the hood, let's explore its  [definition](https://github.com/noir-lang/noir/blob/1b0dd4149d9249f0ea4fb5e2228c688e0135618f/noir_stdlib/src/collections/bounded_vec.nr#L25-L28):
 
-```rust
+```nr
 pub struct BoundedVec<T, let MaxLen: u32> {
     storage: [T; MaxLen],
     len: u32,
@@ -171,25 +171,24 @@ pub struct BoundedVec<T, let MaxLen: u32> {
 
 The noir documentation does not have information on how to pass structs into the program, but there is information on how to pass an [array of structs](https://noir-lang.org/docs/getting_started/project_breakdown#arrays-of-structs), and from there you can infer that the way to pass a struct into the program is via a [table](https://toml.io/en/v1.0.0#table) according to the TOML spec. That means that to pass a `BoundedVec` as input, both `storage` and `len` must be present in this form:
 
-```toml
-[identifier]
-len = ...
-storage = ...
 ```
-
+[identifier]
+len = foo 
+storage = bar
+```
 
 The tricky thing about the definition and the way this works is, `len` is not supposed to be manipulated outside of the `BoundedVec` implementation! From studying the `BoundedVec` source code, you might gather that the `len` value should only be updated upon actions to the backing array, eg. pushing an element or extending from an array.
 
-In our case, since `std::hash::sha256_var` takes in `identifier.len()` as the 2nd argument, we can exploit this knowledge to our advantage by attempting to pass in anything other than the `BoundedVec`'s max size of **128** as the `len` input in `Prover.toml`, just to see what happens:
+In our case, since `std::hash::sha256_var` takes in `identifier.len()` as the 2nd argument, we can exploit this knowledge to our advantage by attempting to pass in anything other than the `BoundedVec`'s max size of **128** as the `len` input in `Prover.toml`, along with the original zero vector of length **128**, just to see what happens:
 
 In `Prover.toml`:
 ```toml
 [identifier]
 len = "0"
-storage = [155, 143, 27, 66, 87, 125, 33, 110, 57, 153, 93, 228, 167, 76, 120, 220, 178, 200, 187, 35, 211, 175, 104, 63, 140, 208, 36, 184, 88, 1, 203, 62, 95, 213, 231, 76, 105, 105, 96, 199, 183, 106, 26, 29, 7, 28, 234, 145, 69, 48, 9, 254, 205, 79, 21, 90, 13, 39, 172, 114, 59, 131, 15, 78, 118]
+storage = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 ```
 
-If we change `len` to `0`, notice that the program is still ran with constraints failing:
+If we change `len` to **0**, notice that the program is still ran with constraints failing:
 
 ```console
 $ nargo execute --silence-warnings
@@ -237,11 +236,11 @@ We've reached the second assertion, which means we've passed the first assertion
 
 ### Showing that **Alice** can act as **Bob**
 
-Now we need to show that **Alice** can act as **Bob**, given her own public key, pepper, and knowledge Bob's public key.
+Now we need to show that **Alice** can act as **Bob**, given her own public key, pepper, and knowledge of Bob's public key.
 
 The second assertion is a slightly simpler affair. It asserts that Bob's public key is found within the `identifier` as a substring using a [string search library](https://github.com/noir-lang/noir_string_search).
 
-We know in the previous assertion that we can manipulate the hash function to only use the first **65** elements of the backing array, which means anything after that is padding. We can simply embed Bob's public key after Alice's identifier string, replacing a part of the padding:
+We know from above that we can manipulate the hash function to only use the first **65** elements of the backing array, which means anything after that is padding. We can simply embed Bob's public key after Alice's identifier string, replacing a part of the padding:
 
 ```toml
 [identifier]
@@ -265,20 +264,23 @@ Huzzah! We've solved the puzzle - Alice has successfully shadowed Bob to steal h
 
 How might we fix this program to disallow Alice from stealing funds?
 
-1. Use an `Array` instead of `BoundedVec`
+#### Use an `Array` instead of `BoundedVec`
 
 There is no reason to use a `BoundedVec` to represent the `identifier`, since we know that the `identifier` is always of the form `{pk}_{pepper}`, which is of length **65**. This means that the `identifier` will not grow or shrink in length during the runtime of the program. Instead, let's just use an [array](https://noir-lang.org/docs/dev/noir/concepts/data_types/arrays) of length **65**:
 
-```rust
+```nr
 fn main(identifier: [u8; 65], pub_key: pub [u8; 32], whitelist: pub [[u8; 32]; 10]) { ... }
 ```
 
 Our hash will now always only hash a message of a constant length of **65**:
-```rust
-    let digest = std::hash::sha256_var(identifier, 65);
+
+```nr
+    let digest = std::hash::sha256_var(identifier, identifier.len() as u64);
 ```
 
 This change is already enough to prevent the exploit, but let's also fix the second part of the puzzle.
+
+#### Limiting the search range of `substring_match`
 
 The string search library instantiates a `StringBody` of length **128**, which is the length of the string to search within. We can simply change this to **32**, since this is the length of the public key itself. This essentially means we're just doing a string equality check.
 
@@ -286,7 +288,7 @@ Unfortunately as of writing this, it doesn't seem like we can take a slice of th
 
 With the above fixes, `main.nr` will look like this:
 
-```rust
+```nr
 // THIS FILE CANNOT BE CHANGED
 
 use noir_string_search::{StringBody, StringBody128, SubString, SubString32};
@@ -296,7 +298,7 @@ use noir_string_search::{StringBody, StringBody128, SubString, SubString32};
 
 fn main(identifier: [u8; 65], pub_key: pub [u8; 32], whitelist: pub [[u8; 32]; 10]) {
     // the identifier hashes to a digest that is in the public whitelist
-    let digest = std::hash::sha256_var(identifier, 65);
+    let digest = std::hash::sha256_var(identifier, identifier.len() as u64);
     let mut present = false;
     for i in 0..whitelist.len() {
         if whitelist[i] == digest {
