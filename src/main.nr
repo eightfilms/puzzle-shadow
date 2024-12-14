@@ -7,7 +7,7 @@ use noir_string_search::{StringBody, StringBody128, SubString, SubString32};
 
 fn main(identifier: [u8; 65], pub_key: pub [u8; 32], whitelist: pub [[u8; 32]; 10]) {
     // the identifier hashes to a digest that is in the public whitelist
-    let digest = std::hash::sha256_var(identifier, 65);
+    let digest = std::hash::sha256_var(identifier, identifier.len() as u64);
     let mut present = false;
     for i in 0..whitelist.len() {
         if whitelist[i] == digest {
