@@ -280,18 +280,18 @@ Our hash will now always only hash a message of a constant length of **65**:
 
 This change is already enough to prevent the exploit, but let's also fix the second part of the puzzle.
 
-#### Limiting the search range of `substring_match`
+#### Limiting the search range of `substring_match`, or even replacing it
 
 The string search library instantiates a `StringBody` of length **128**, which is the length of the string to search within. We can simply change this to **32**, since this is the length of the public key itself. This essentially means we're just doing a string equality check.
 
-Unfortunately as of writing this, it doesn't seem like we can take a slice of the `identifier` array to get a view into the first 32 bytes, where the public key lives, so the above solution will have to do.
+A better fix, since we know exactly where the `pub_key` lives, would just be to compare the bytes directly with a [for loop](https://noir-lang.org/docs/noir/concepts/control_flow/#loops)!
 
-With the above fixes, `main.nr` will look like this:
+Not only is this a cleaner solution, but we also get rid of an unnecessary dependency, which can be a source of bugs (eg. supply chain attacks).
+
+With the above fix, `main.nr` will look like this:
 
 ```nr
 // THIS FILE CANNOT BE CHANGED
-
-use noir_string_search::{StringBody, StringBody128, SubString, SubString32};
 
 // alice_pk = [155, 143, 27, 66, 87, 125, 33, 110, 57, 153, 93, 228, 167, 76, 120, 220, 178, 200, 187, 35, 211, 175, 104, 63, 140, 208, 36, 184, 88, 1, 203, 62]
 // alice_pepper = [213, 231, 76, 105, 105, 96, 199, 183, 106, 26, 29, 7, 28, 234, 145, 69, 48, 9, 254, 205, 79, 21, 90, 13, 39, 172, 114, 59, 131, 15, 78, 118]
@@ -307,11 +307,10 @@ fn main(identifier: [u8; 65], pub_key: pub [u8; 32], whitelist: pub [[u8; 32]; 1
     }
     assert(present);
 
-    // the specified public key is in the identifier
-    let id_haystack: StringBody128 = StringBody::new(identifier, 32);
-    let pk_needle: SubString32 = SubString::new(pub_key, 32);
-    let (result, _): (bool, u32) = id_haystack.substring_match(pk_needle);
-    assert(result);
+    // the specified public key is in the identifier's first 32 bytes
+    for i in 0..32 {
+        assert(identifier[i] == pub_key[i]);
+    }
 }
 ```
 
